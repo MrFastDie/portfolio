@@ -1,0 +1,32 @@
+name: Deploy IAT
+
+on:
+  push:
+    branches: [ iat ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20.5.1'
+      - run: mkdir ~/.ssh
+      - run: echo "${KNOWN_HOSTS}" > ~/.ssh/known_hosts
+        shell: bash
+        env:
+          KNOWN_HOSTS: ${{ secrets.SSH_AUTHORIZED_KEYS_IAT }}
+      - run: chmod 600 ~/.ssh/known_hosts
+      - run: echo "${SSH_KEY_DEPLOY}" > ~/.ssh/id_rsa_copy
+        shell: bash
+        env:
+          SSH_KEY_DEPLOY: ${{ secrets.SSH_KEY_IAT }}
+      - run: chmod 400 ~/.ssh/id_rsa_copy
+
+      - name: Install dependencies
+        run: npm install
+      - name: Build frontend
+        run: npm run build
+
+      - run: rsync -avz -e 'ssh -p 22565 -i ~/.ssh/id_rsa_copy -o UserKnownHostsFile=~/.ssh/known_hosts' ./dist/* deploy@iat.pr0p0ll.com:/iat.pr0p0ll.com/frontend/
